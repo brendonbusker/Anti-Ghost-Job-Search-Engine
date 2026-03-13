@@ -260,6 +260,11 @@
   - the alert settings page and updates feed now call out auto-refresh issues explicitly, so "manual history exists" no longer hides the fact that scheduled refresh may be missing or broken
   - auto-refresh health is computed from the latest due-batch run rather than the latest manual run, which keeps deployment-scheduler problems visible even when a user refreshes an alert by hand
 - Verified the automatic-refresh health slice with `npm run typecheck --workspace @anti-ghost/web` and `npm run build --workspace @anti-ghost/web`.
+- Hardened the web app for app-root deployment builds on Vercel:
+  - `apps/web` now carries its own `tsconfig.base.json` instead of depending on a repo-root-relative `../../tsconfig.base.json` path
+  - the web `build` script now runs `prisma generate` against the shared schema before `next build`, so app-root deployments do not depend on a root-workspace `postinstall` to materialize the Prisma client
+  - `next.config.ts` now transpiles both `@anti-ghost/domain` and `@anti-ghost/database`, which keeps local-package imports honest when the web app is deployed as the project root
+- Verified the app-root deployment hardening with `npm run typecheck --workspace @anti-ghost/web` and `npm run build --workspace @anti-ghost/web`.
 
 ## Key Architecture Decisions
 
@@ -269,6 +274,7 @@
 - Use Prisma 7 with a Postgres adapter and generated client in the database package.
 - Keep deployment scheduling thin and app cadence logic centralized: run one hourly cron against `/api/internal/alerts/run`, then let the existing due-alert evaluator decide which monitored searches actually execute.
 - Evaluate automatic refresh health against due-batch runs, not just any alert run, so manual refreshes do not mask broken scheduler behavior.
+- Treat `apps/web` as deployable both inside the monorepo and as a standalone project root: avoid repo-root-relative TypeScript config assumptions, and make the web build materialize the shared Prisma client explicitly.
 - Start with a mock-data UI shell while real ingestion is built underneath it.
 - Keep V1 ingestion source-specific and adapter-based instead of forcing one generic parser across ATS providers.
 - Persist Greenhouse listings directly into `sources` and `raw_job_listings` first; defer dedicated fetch-run audit tables until the ingestion workflow proves it needs them.
@@ -372,7 +378,7 @@
 
 ## Next Recommended Steps
 
-- `MVP` Treat `/updates` as the primary monitored-search destination now that alert history is user-facing; the next clean follow-up is operationalizing the hourly cron in deployment and confirming real automatic refresh on a live environment.
+- `MVP` Treat `/updates` as the primary monitored-search destination now that alert history is user-facing; the next clean follow-up is redeploying with the new app-root build hardening, then confirming real automatic refresh on a live environment.
 - `MVP` Use the new auto-refresh health states on `/alerts` and `/updates` as the live deployment smoke test once cron is enabled; the product now exposes overdue or failing due-batch refresh directly instead of making operators infer it from raw run history.
 - `MVP` After scheduled refresh is live, decide whether the next higher-leverage step is stronger external auth or the first outbound digest channel; the current product can already show honest alert changes in-app.
 - `MVP` Build on the new monitored-search loop next, not more review polish: the best follow-up candidates are stronger auth hardening, scheduled alert execution history, or another pass on search relevance/presentation now that saved searches can actually be re-checked.

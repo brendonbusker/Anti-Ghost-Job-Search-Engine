@@ -1,5 +1,5 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "esnext"],
     "noEmit": true,
@@ -11,8 +11,7 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@anti-ghost/domain": ["../../packages/domain/src/index.ts"]
+      "@/*": ["./src/*"]
     }
   },
   "include": [

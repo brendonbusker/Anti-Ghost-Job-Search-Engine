@@ -5,7 +5,7 @@
   "scripts": {
     "alerts:run": "tsx src/cli/run-alerts.ts",
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate --schema ../../packages/database/prisma/schema.prisma && next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
@@ -24,6 +24,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "prisma": "7.5.0",
     "tailwindcss": "^4",
     "tsx": "4.21.0",
     "typescript": "^5"
