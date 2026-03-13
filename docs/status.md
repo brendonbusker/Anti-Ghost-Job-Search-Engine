@@ -1,0 +1,406 @@
+# Status
+
+## Thread Start Requirements
+
+- At the start of every new thread, read `AGENTS.md` and `docs/status.md` before acting.
+- Before beginning development for a new phase, review the full `docs/` folder so the current product brief, architecture docs, status handoff, and thread opener context are all in memory.
+- Beginning with the next new phase, start the phase in plan mode and keep using plan mode for later phases so the phase can be mapped as an explicit checklist before implementation continues.
+- Use plan mode at phase boundaries to define the phase scope, sequencing, and likely risks first, then iterate through the phase against that plan instead of improvising task-by-task.
+- At the start of each new phase, build both:
+  - a phase plan for the work to execute now
+  - a lightweight forward roadmap covering the likely later phases, so the current phase stays grounded in the whole-project sequence
+- Default expectation for future phases: execute autonomously through the active phase once the plan is set, and move into the next planned phase without needing a manual "continue" prompt unless blocked or a high-consequence tradeoff needs user confirmation.
+- Use the installed repo skills whenever the task matches them instead of improvising from scratch:
+  - `jobs-data-model`
+  - `job-ingestion-pipeline`
+  - `job-dedup-canonicalization`
+  - `job-trust-scoring`
+  - `job-staleness-scoring`
+  - `job-search-ui`
+  - `ranking-evaluation`
+  - `browser-extension-overlay`
+- Treat `docs/status.md` as the durable handoff file for each new thread: refresh it when a phase begins, when guidance changes, and when meaningful progress lands.
+
+## Current Phase
+
+- User-facing `MVP` completion on top of the now-stable engine and eval loop: the current focus is now the full monitored-search workflow from search to save to alert to updates, instead of spending another phase on internal review-tool polish.
+
+## Completed
+
+- Established the workspace-based repo foundation with `apps/web`, `packages/domain`, and `packages/database`.
+- Added architecture docs for repo structure, MVP build order, and the data-model foundation.
+- Implemented the first-pass Prisma schema covering sources, raw listings, canonical jobs, snapshots, scores, users, saved jobs, saved searches, and alerts.
+- Replaced the default starter UI with a serious search-first web shell and sample detail view.
+- Verified install, Prisma client generation, lint, typecheck, and production build.
+- Added the ingestion workspace package with a reusable adapter contract, Greenhouse, Lever, and Ashby public posting adapters, idempotent raw-listing persistence flow, endpoint activity check helpers, CLI sync entrypoints, and representative adapter tests.
+- Added a config-driven ingestion orchestrator for Greenhouse, Lever, and Ashby, plus an example multi-source sync config and orchestration tests.
+- Added a repo-level context handoff workflow: read `AGENTS.md` and `docs/status.md` before work, refresh `docs/status.md` at phase boundaries, and keep a reusable thread opener template in `docs/THREAD_OPENER_TEMPLATE.md`.
+- Confirmed the canonicalization phase scope: deterministic normalization, explainable matching rules, canonical-source precedence, and merge rationale persistence before scoring work begins.
+- Implemented the first canonicalization pipeline in `packages/ingestion`: active raw listings load into normalized matching inputs, cluster by official URL/requisition/internal ID or explicit fuzzy thresholds, select a canonical source by precedence, and persist `canonical_jobs` plus `canonical_job_sources`.
+- Added canonicalization tests covering normalization, hard matches, fuzzy matches, and non-merge cases, plus a CLI entrypoint for running the phase directly.
+- Converted the repo-local job skill drafts under `.agents/skills` into installed Codex skills, added generated `agents/openai.yaml` metadata, and added a repo sync command so future threads can use those skills directly.
+- Added a lightweight internal canonical review surface in `apps/web` that reads from `canonical_jobs` and `canonical_job_sources`, exposes merge rationale and canonical-source precedence, and supports practical review filters for missing official source, low confidence, and multi-source clusters.
+- Added a dedicated `packages/scoring` workspace with the first heuristic scoring pipeline, CLI entrypoint, and unit tests for trust, freshness, and priority scoring.
+- Persist scoring outputs into `job_scores` and `job_snapshots` together so trust/freshness/priority remain append-only, explainable, and tied to a model version.
+- Connected the web search and detail routes to real canonical jobs plus latest scores, with URL-shareable filters and graceful fallback to mock data when the local database is unavailable.
+- Expanded the internal canonical review surface with latest score-debug readouts, including trust/freshness/priority labels and numeric scores, score reasons, flags, evidence, and review filters for score state.
+- Added an explicit scoring-configuration module plus a `score:report` CLI so threshold tuning can use shared heuristics, summary counts, and review queues instead of hardcoded values scattered through the scorer.
+- Extended scoring tests with borderline trust/freshness cases so future tuning is less likely to over-penalize missing-official ATS jobs or older but still-active official jobs.
+- Confirmed the new `score:report` path can run against a local Postgres-compatible `pglite` socket server after bootstrapping schema SQL, which gives this repo a workable no-Docker local fallback when Postgres is not installed.
+- Added a deterministic `seed:review-data` workflow that populates raw listings, canonical jobs, canonical links, snapshots, and scores for five representative review scenarios so local tuning can happen without waiting on live ingestion.
+- Used the seeded review dataset to make the first heuristic tuning adjustment: missing-official jobs can no longer receive the `NEW` freshness label, which keeps ATS-only freshness useful without overstating certainty.
+- Added repo-level `db:review:bootstrap` and `db:review:stop` commands so the local `pglite` review database can be started, schema-bootstrapped, seeded, reported, and later stopped without manual shell steps.
+- Made the second seeded tuning adjustment: older but still-active official jobs now drop below `APPLY_NOW` urgency, so only genuinely new official roles retain the top priority label in the seeded review report.
+- Made the third seeded tuning adjustment: fuzzy multi-source clusters with title or location disagreement now carry an explicit priority penalty and reason, so ambiguous clusters are deprioritized intentionally instead of only drifting near the threshold.
+- Made the fourth seeded tuning adjustment: missing-official ATS-only jobs now take an explicit priority penalty, but calibration distinguishes between very strong ATS-backed cases that can still reach `APPLY_SOON` and more typical ATS-only cases that should remain `LOW_PRIORITY`.
+- Expanded the tuning workflow so both the CLI score report and the internal review surface now call out actionable missing-official jobs and ambiguous clusters more explicitly, which makes the next manual calibration pass easier.
+- Upgraded the internal review UI so those two calibration queues are first-class filters and badges, which keeps the rest of this phase read-only but makes repeated tuning passes much faster.
+- Made the fifth seeded tuning adjustment: ambiguous clusters with unknown endpoint state now take a small freshness-confidence penalty, which prevents very recent fuzzy clusters from looking `NEW` before the official posting is confirmed active.
+- Expanded `score:report` with aggregate score averages and top-reason diagnostics, so threshold tuning can lean on repeated evidence patterns instead of only queue counts.
+- Split the ambiguous-cluster review path into two buckets: plausible ambiguous candidates that still deserve tuning attention, and ambiguous clusters already rejected by current trust/freshness/priority signals.
+- Added a combined `calibrationCandidates` queue across CLI and internal review UI so the final read-only pass can focus on unresolved but still plausible jobs instead of rebuilding that set manually.
+- Added explicit company-enrichment persistence on `companies` for domain confidence, careers-url confidence, and enrichment evidence, plus official-source method and evidence fields on `canonical_jobs`.
+- Added a conservative company-enrichment pipeline in `packages/ingestion` that derives company-domain signals from existing trusted data, inspects official company pages, discovers careers links, and verifies ATS boards before backfilling ATS-origin canonical jobs.
+- Added an `enrich:companies` CLI so official-source backfill can run as a deliberate pipeline step instead of being hidden inside scoring.
+- Updated canonicalization to persist official-source method/evidence from the beginning, so later enrichment and scoring can tell the difference between raw canonical hints, company-careers sources, company-linked ATS boards, and generic careers-page fallbacks.
+- Updated trust/freshness/priority scoring so company-linked ATS-board verification improves confidence but stays more conservative than an exact job-level official page, while generic careers-page fallbacks remain safer than missing but still cautious.
+- Extended the internal review surface and `score:report` diagnostics with enrichment-backfilled visibility, official-source method readouts, and company-domain/careers context so enrichment quality can be reviewed without building a new admin system.
+- Refreshed the seeded review corpus so Beacon Analytics and Orbit Commerce now exercise the new company-enrichment semantics, reducing missing-official seeded cases and making enrichment behavior visible in local review flows.
+- Upgraded `db:review:bootstrap` so an existing local review database receives additive schema upgrades for the current phase before seeding, preventing stale local schemas from blocking the workflow.
+- Added a clean local evaluation DB workflow alongside the seeded review workflow with new `db:eval:bootstrap` and `db:eval:stop` commands, so real-data runs no longer need to share state with the seeded calibration corpus.
+- Added a curated live-evaluation source config in `config/source-sync.real-eval.json` covering Airtable, Chainguard, Dnb, Entrata, Linear, and Cursor across Greenhouse, Lever, and Ashby.
+- Ran the first isolated real-data pipeline on that config: 275 raw listings, 235 canonical jobs, 235 scored jobs, zero unscored jobs, and no job-level missing-official cases in this ATS-only sample.
+- Confirmed a live-data gap in the current enrichment story: all 235 canonical jobs already have official-source URLs from source canonical hints, while company-level enrichment still resolves zero `primary_domain` and zero `careers_url` values for the six sampled employers.
+- Added cached, concurrency-limited endpoint checks in scoring so a live 235-job scoring pass now completes in about a minute instead of timing out during sequential endpoint validation.
+- Fixed the first-import freshness overstatement discovered on real data: scoring now uses source-reported listing age as a conservative fallback when local observation history is shallow, which shifted the live sample from `235 NEW / 235 APPLY_NOW` to `37 NEW / 99 FRESH / 99 AGING` and `142 APPLY_NOW / 93 APPLY_SOON`.
+- Extended `score:report` with official-source-method counts, official-source coverage diagnostics, company-enrichment coverage diagnostics, and a ranked unresolved-company queue so this phase can produce a real coverage-gap list instead of only score labels.
+- Verified the first ranked unresolved-company coverage gaps from the live sample: Cursor (58 active canonical jobs), Dnb (50), Chainguard (49), Entrata (34), Airtable (28), and Linear (16) all still lack resolved `primary_domain` and `careers_url` despite stored enrichment evidence.
+- Fixed root npm wrapper arg forwarding for `ingest:all` and `score:report`, so the repo-level commands now accept `--config=...` and `--limit=...` without falling through to npm warnings or failures.
+- Added a conservative exact-match company seed path in `packages/ingestion` plus `config/company-enrichment.seeds.json`, so top unresolved employers can gain explainable `primary_domain` and `careers_url` coverage without speculative discovery.
+- Re-ran the isolated live eval loop after the seed expansion and confirmed company-level coverage improved from `0/6` to `6/6` resolved `primary_domain` values and from `0/6` to `5/6` resolved `careers_url` values across Cursor, Dnb, Chainguard, Entrata, Airtable, and Linear.
+- Confirmed the seed expansion now produces real non-hint official-source evidence in live data: `33` canonical jobs are verified through the `company_linked_ats_board` method, while `203` still use `source_canonical_hint`.
+- Confirmed the remaining partial gap is Dnb: `primary_domain=dnb.com` is now resolved conservatively, but `careers_url` remains unset because the live fetch path did not produce stable official careers-page evidence.
+- Added a conservative Lever fallback that extracts trailing title requisition codes like `(R-18876)` when the public feed omits structured requisition data, which converts several real Dnb multi-location pairs from fuzzy matches into explicit requisition-backed matches.
+- Tightened scoring so shared-requisition multi-location clusters no longer take the same ambiguity penalty as genuinely fuzzy or inconsistent clusters; this reduced the real ambiguous-review queue from `20` jobs to `11`, and reduced Dnb ambiguity from `7` jobs to `1`.
+- Discovered and fixed a more serious real-data canonicalization bug during review: generic requisition labels like Airtable's `Pipeline` were being treated as hard unique identifiers, causing an over-merged 22-member cluster across unrelated titles and locations.
+- Tightened canonicalization so only requisition IDs with identifier-like shape (currently: containing digits) participate in hard requisition matching; after rerunning the live pipeline, the Airtable `Pipeline` mega-cluster split back apart and no missing-official regressions were introduced.
+- Fixed a rerun-splitting bug in canonicalization persistence: when one prior canonical job breaks into multiple new clusters, only one cluster may now reuse that old canonical ID in the current run, which allows real split corrections to persist instead of collapsing back together through stale link history.
+- Tightened internal-job hard matching so `internal_job_id` only joins listings when the normalized title also agrees, after live Airtable data showed Greenhouse can reuse one internal ID across distinct titles within the same general hiring track.
+- Added a conservative fuzzy-match guardrail: exact-title listings with clearly different non-empty locations no longer merge unless a harder identifier already tied them together, which safely split the Linear `Europe`/`North America` pairs and the remaining Cursor cross-city pair.
+- Added final last-mile ambiguity cleanup for protected title qualifiers: internship vs non-internship titles, `AI` title variants, and experience-band variants like `2-8 YOE` vs `8+ YOE` no longer fuzzy-merge without a harder identifier.
+- Tightened scoring so same-requisition title drift no longer counts as ambiguous, and exact duplicate title/location clusters no longer carry fuzzy-cluster penalties just because they were linked through the fuzzy path.
+- Verified the live `score:report` ambiguity queue is now empty: `ambiguousClusters=0`, `ambiguousReviewCandidates=0`, `calibrationCandidates=0`, with zero missing-official regressions and company coverage still at `6/6` domains and `5/6` careers URLs.
+- Added a second conservative company-coverage expansion path: when an employer already has a trusted domain but official-site discovery is unavailable, enrichment can now infer a company-level ATS careers destination from a single repeated trusted ATS board root across live source URLs.
+- Kept that new path explainable by persisting careers-url provenance, ATS-board-root evidence, and careers-url source counts, so the report can distinguish curated same-domain careers pages from ATS-board-root fallbacks.
+- Added a distinct official-source method for ATS-board-root verification, so the scorer can treat it as useful but still conservative board-level evidence instead of overstating it as a company-page-linked verification.
+- Recycled the evaluation DB and reran the real-data pipeline cleanly with current code: 278 raw listings, 265 canonical jobs, 265 scored jobs, `officialSourceMissing=0`, `ambiguousClusters=0`, `primaryDomainResolved=6/6`, and `careersUrlResolved=6/6`.
+- Confirmed the clean live method mix is now `167 source_canonical_hint`, `33 company_linked_ats_board`, and `50 trusted_ats_board_root`, with Dnb as the only `trusted_ats_board_root` company in the current sample.
+- Expanded the standard real-eval source config to a broader but still workable eight-employer batch: Airtable, Chainguard, Cursor, Dnb, Entrata, Linear, Substack, and Vercel.
+- Verified that broader clean run end to end: 377 raw listings, 363 canonical jobs, 363 scored jobs, eight companies persisted, and zero missing-official or ambiguity regressions in the sampled report window.
+- Verified full-dataset official-source method counts on that broader eval DB: `280 source_canonical_hint`, `50 trusted_ats_board_root`, and `33 company_linked_ats_board`.
+- Verified the broader eval set still has complete company coverage for the employers in the DB: Vercel `80` canonicals, Cursor `59`, Chainguard `52`, Airtable `50`, Dnb `50`, Entrata `33`, Linear `21`, and Substack `18`, all with resolved company domain plus careers destination.
+- Tried a larger ten-employer expansion that added Figma and Vanta, but that batch wedged the local `pglite` eval loop; the main real-eval config now stays on the eight-employer set until the local eval workflow moves to a stronger database path.
+- Added batched sync support through `npm run ingest:batch`, plus a second config file `config/source-sync.real-eval.expansion.json`, so future broader evals can sequence multiple source configs without inventing a second ingestion workflow.
+- Improved raw-listing persistence modestly by preloading existing source rows in memory before writes, which removes one database lookup per listing while preserving the stable create/update semantics that still work with local `pglite`.
+- Tested a more aggressive `createMany` first-import optimization, but removed it after confirming it destabilized the local `pglite` path; the repo now keeps the safer persistence improvement without leaving the ingest loop broken.
+- Confirmed the stronger finding on local limits: the standard eight-source config still ingests successfully in about 14 seconds, but the two-employer expansion config still wedges the local eval DB even when run as a separate follow-up command, so the current blocker is operational capacity rather than batching syntax.
+- Confirmed the local `pglite-socket` server is fundamentally single-connection, then hardened the repo around that reality: local review/eval bootstrap URLs now advertise `connection_limit=1`, the Prisma client now respects that URL hint and enables `allowExitOnIdle`, and all one-shot DB-backed CLIs now explicitly disconnect Prisma on exit instead of relying on process teardown.
+- Added persistent local `pglite` server logs under `.codex/review-db/pglite.log` and `.codex/eval-db/pglite.log`, which turned silent local failures into inspectable socket/server errors during broader eval runs.
+- Diagnosed the broader expansion ingest failure more precisely: source fetch itself was never the issue, but large Ashby payloads, especially `vanta`, were duplicating full description bodies into both `description_raw` and `payload_json`, which made `pglite` much more fragile on those rows.
+- Trimmed Ashby source payload persistence so full description bodies stay in `description_raw` while `payload_json` now keeps auditable description metadata (`rawField`, length, hash) instead of duplicating those large blobs again.
+- Verified that change materially improved the heavy-source path: `vanta` can now sync successfully against an existing eval DB where it previously timed out or wedged.
+- Re-tested chunked `createMany` for fresh raw-listing inserts after that payload trim, but confirmed again that even small chunked inserts can still crash a brand-new local `pglite` DB; that optimization was reverted, so the repo keeps the safer row-by-row raw create path.
+- Measured broader-corpus canonicalization directly and confirmed the matching logic itself is not the wall: loading and clustering `731` live listings into `708` clusters takes well under a second, so the broader ten-employer timeout is overwhelmingly a persistence problem rather than a fuzzy-matching or normalization problem.
+- Reduced canonicalization write amplification by upserting companies once per normalized employer instead of once per cluster, and by rebuilding `canonical_job_sources` in bulk rather than `deleteMany + upsert` per member.
+- Verified the broader ten-employer ingest rerun can now complete successfully on the local eval DB when the data already exists: `npm run ingest:batch -- --configs=config/source-sync.real-eval.json,config/source-sync.real-eval.expansion.json` succeeded with `10/10` sources and `731` observed listings on the warmed eval DB.
+- Confirmed the next broader-corpus ceiling after those improvements: full `canonicalize` on the ten-employer local `pglite` eval DB still does not finish within ten minutes, even though in-memory clustering is fast, so canonicalization persistence is now the main blocker for broader local real-eval runs.
+- Replaced the broader-corpus hard stop with a staged local canonicalization path: on single-connection local DBs, canonicalization now batches listings by normalized employer before persistence, which preserves matching behavior because canonical clusters never cross employer boundaries.
+- Added a safer local canonicalization write mode for single-connection databases: `canonical_jobs` and `canonical_job_sources` now fall back to row-by-row creates instead of `createMany`, which avoids the same `pglite` fragility already seen on raw-listing inserts.
+- Verified the broadened ten-employer local eval loop now completes end to end on `pglite`: bootstrap, `ingest:batch`, `canonicalize`, `enrich:companies`, `score:jobs`, and `score:report` all ran successfully against the combined Airtable, Chainguard, Cursor, Dnb, Entrata, Figma, Linear, Substack, Vanta, and Vercel corpus.
+- Verified the full broadened eval dataset now stands at `709` canonical jobs with `709` scored jobs, `0` missing-official cases, `10/10` companies resolved for both `primary_domain` and `careers_url`, and official-source methods split across `461 source_canonical_hint`, `165 company_linked_exact_job`, `50 trusted_ats_board_root`, and `33 company_linked_ats_board`.
+- Fixed a reporting blind spot exposed by the broader eval: `score:report` no longer computes coverage diagnostics from an implicit 250-job sample window, so the CLI now reports full-dataset counts while still trimming queue entries by `--limit`.
+- Confirmed the next real-data quality queue on the full broadened corpus is small and concrete rather than infrastructural: `6` ambiguous review candidates remain, concentrated in one Figma cluster and five Vanta clusters with title drift.
+- Resolved those last six broadened-corpus ambiguity cases with two conservative changes:
+  - canonicalization now treats seniority, segment qualifiers like `commercial`, and acronym-qualified variants like `GTM`, `G&A`, and `IT/AV` as protected title qualifiers for fuzzy matching
+  - scoring now treats token-reordered duplicate titles as equivalent, so harmless title-order variants no longer surface as ambiguity
+- Verified the refreshed ten-employer eval loop now lands at `714` canonical jobs and `714` scored jobs with `0` missing-official cases, `0` ambiguous clusters, `0` ambiguous review candidates, and `0` calibration candidates across the broadened local corpus.
+- Verified the refreshed official-source method mix on the full broadened corpus is now `465 source_canonical_hint`, `166 company_linked_exact_job`, `50 trusted_ats_board_root`, and `33 company_linked_ats_board`, with company enrichment coverage still at `10/10` domains and `10/10` careers URLs.
+- Added a second conservative coverage-expansion batch with `Webflow` on Greenhouse and `Zapier` on Ashby, plus curated company seeds for `webflow.com/company/careers` and `zapier.com/jobs`.
+- Verified the twelve-employer local eval loop now completes cleanly with `12/12` source success, `820` raw active listings, `799` canonical jobs, `799` scored jobs, `0` missing-official cases, `0` ambiguous clusters, and `0` calibration candidates.
+- Verified company coverage remains complete on the expanded corpus: `12/12` companies now resolve both `primary_domain` and `careers_url`, with careers-url provenance split across `11 curated_company_seed` and `1 trusted_ats_board_root`.
+- Verified the latest official-source method mix on the full expanded corpus is now `550 source_canonical_hint`, `166 company_linked_exact_job`, `50 trusted_ats_board_root`, and `33 company_linked_ats_board`.
+- Added a third conservative coverage-expansion batch with `Modal` and `Render` on Ashby, plus curated company seeds for `modal.com/company` and `render.com/careers`.
+- Verified the fourteen-employer local eval loop now completes cleanly with `14/14` source success, `867` observed raw listings, `848` scored canonical jobs, `0` missing-official cases, `0` ambiguous clusters, and `0` calibration candidates.
+- Verified company coverage remains complete on the further expanded corpus: `14/14` companies now resolve both `primary_domain` and `careers_url`, with careers-url provenance split across `13 curated_company_seed` and `1 trusted_ats_board_root`.
+- Verified the latest official-source method mix on the full expanded corpus is now `550 source_canonical_hint`, `184 company_linked_exact_job`, `64 company_linked_ats_board`, and `50 trusted_ats_board_root`.
+- Expanded `score:report` with a `topCompanies` queue so the broader eval corpus can be inspected company-by-company without dropping into ad hoc SQL or one-off scripts.
+- Upgraded the internal `/review/canonical` surface so broader live-data tuning is easier inside the web app:
+  - counts now reflect the full dataset rather than a limited review sample
+  - filters now include explicit `company` and `officialSourceMethod` slices
+  - the sidebar now exposes a top-companies panel for quick employer-focused review
+  - the main content now shows how many jobs match the active live-eval filters before the page limit is applied
+- Verified the upgraded review surface compiles and builds cleanly with `npm run typecheck --workspace @anti-ghost/web` and `npm run build --workspace @anti-ghost/web`.
+- Started the next evaluation-workflow phase in explicit plan-first form and kept the scope `MVP`: add durable reviewer annotations before considering heavier override controls or a separate admin system.
+- Added append-only `canonical_job_reviews` persistence plus `CanonicalReviewType` and `CanonicalReviewDisposition` enums so reviewer feedback is durable, typed, and audit-friendly without mutating canonical or scoring rows in place.
+- Upgraded `db:review:bootstrap` additive schema upgrades so existing local review databases can gain reviewer-annotation support without destructive resets.
+- Added a server-side reviewer-annotation write path for `/review/canonical`, so internal review can now save merge-quality, official-source, score-calibration, and general-note feedback directly from the live review surface.
+- Upgraded `/review/canonical` again so reviewer annotations become part of the daily evaluation loop:
+  - summary cards now show reviewed-job coverage and follow-up-note counts
+  - review queues now include explicit reviewer follow-up work
+  - filters now support `reviewedOnly` and `needsFollowUpOnly`
+  - each canonical card now shows recent reviewer annotations and a lightweight append-only note form
+- Extended `score:report` so reviewer annotations are visible outside the web UI too:
+  - counts now include review disposition and review-type tallies
+  - diagnostics now include reviewer-annotation coverage
+  - queues now expose `reviewerFollowUp` and `reviewedJobs`
+- Verified the reviewer-annotation phase slice with `npm run db:generate`, `npm run typecheck --workspace @anti-ghost/database`, `npm run typecheck --workspace @anti-ghost/web`, `npm run build --workspace @anti-ghost/web`, `npm run typecheck --workspace @anti-ghost/scoring`, `npm run test --workspace @anti-ghost/scoring`, `npm run score:report -- --limit=3`, and `npm run db:review:bootstrap`.
+- Started the next evaluation-workflow phase in explicit plan-first form and kept it `MVP`: make annotation history influence queue prioritization before considering any override controls.
+- Added annotation-aware review status and priority shaping in `apps/web/src/lib/canonical-review.ts`, so each canonical job now carries:
+  - `reviewStatus` (`FOLLOW_UP`, `NEEDS_FIRST_PASS`, `REVIEWED_RESOLVED`, `UNREVIEWED_STABLE`)
+  - `reviewBacklog`
+  - `reviewPriorityScore`
+  - `reviewPriorityReasons`
+  - `latestReview`
+- Changed `/review/canonical` ordering so filtered results now surface annotation-aware review backlog first, then recency, instead of relying only on raw DB update order.
+- Upgraded `/review/canonical` again so the queue model is clearer in the UI:
+  - summary cards now include review backlog, first-pass backlog, and reviewed-stable counts
+  - queue presets now include `Review backlog` and `Needs first pass`
+  - filters now include `backlogOnly`
+  - canonical cards now show explicit review status and review-priority reasons
+  - reviewer history now calls out the latest saved reviewer decision directly
+- Extended `score:report` again so the CLI mirrors the same annotation-aware queue model:
+  - counts now include `reviewStatuses`
+  - annotation diagnostics now include `reviewBacklogJobs`, `firstPassReviewJobs`, and `reviewedResolvedJobs`
+  - queue averages and reason highlights now include `reviewBacklog` and `firstPassReview`
+  - queues now include `reviewBacklog`, `firstPassReview`, and `reviewedResolved`
+- Verified the annotation-aware prioritization slice with `npm run typecheck --workspace @anti-ghost/web`, `npm run build --workspace @anti-ghost/web`, `npm run typecheck --workspace @anti-ghost/scoring`, `npm run test --workspace @anti-ghost/scoring`, and `npm run score:report -- --limit=3`.
+- Tightened the annotation-aware queue phase so company rollups now understand review state too:
+  - `CanonicalReviewCompanySummary` now includes backlog, first-pass, follow-up, reviewed-stable, latest-review, and highest-priority fields
+  - `/review/canonical` company cards now reflect first-pass backlog explicitly instead of only total flagged jobs
+  - the dedicated `Needs first pass` queue now has its own true `firstPassOnly` filter instead of piggybacking on the broader backlog filter
+- Extended `score:report` company summaries so `topCompanies` and `unresolvedCompanies` now expose review-backlog, first-pass, follow-up, reviewed-stable, highest-priority, and latest-note metadata alongside coverage fields.
+- Verified the company-summary refinement slice with `npm run typecheck --workspace @anti-ghost/web`, `npm run build --workspace @anti-ghost/web`, `npm run typecheck --workspace @anti-ghost/scoring`, `npm run test --workspace @anti-ghost/scoring`, and `npm run score:report -- --limit=3`.
+- Began the new product-facing completion phase with an explicit phase plan and lightweight forward roadmap instead of continuing internal-tool iteration by default.
+- Upgraded the main search surface for real job-search sessions:
+  - added company, priority, official-route, and minimum-salary filters on top of the existing keyword, location, remote, trust, freshness, and sort controls
+  - replaced stale phase-status hero copy with live product-oriented summary cards and clearer search workflow framing
+  - kept list cards dense and explainable while adding shortlist visibility directly in the results
+- Added the first usable saved-jobs workflow on top of the existing `users` and `saved_jobs` tables:
+  - introduced a lightweight local MVP user path so the web app can save jobs end to end before full authentication lands
+  - added save/unsave actions on both search cards and detail pages
+  - added a dedicated `/saved` route with shortlist summaries, saved-job notes, and direct official-apply links
+- Tightened the job detail page around user actionability:
+  - added save state visibility, decision-snapshot blocks, clearer official-route messaging, and stronger source/provenance framing
+  - preserved the existing evidence-first trust, freshness, priority, and history sections instead of replacing them with vague summaries
+- Added a lightweight app-wide navigation shell linking search, saved jobs, and review so the local MVP now has a clearer end-to-end usage flow.
+- Verified the user-facing MVP completion slice with `npm run typecheck --workspace @anti-ghost/web` and `npm run build --workspace @anti-ghost/web`.
+- Replaced the hardcoded local shortlist user with a lightweight cookie-backed sign-in flow:
+  - added a simple email-based `MVP` session path and `/sign-in` screen for local product use
+  - updated save-job flows so they now belong to the signed-in user instead of an implicit global local user
+  - surfaced current signed-in state in the main app navigation
+- Added the first saved-search scaffolding on top of the existing `saved_searches` table:
+  - users can now save the current search filter set directly from `/`
+  - saved searches have a dedicated `/searches` page with reopen and delete actions
+  - reusable search state now serializes from the same filter model that powers the live search route
+- Updated the search, saved-jobs, and detail surfaces so signed-out users still get a usable browsing flow while user-specific actions clearly prompt for sign-in instead of pretending state will persist.
+- Verified the auth plus saved-search slice with `npm run typecheck --workspace @anti-ghost/web` and `npm run build --workspace @anti-ghost/web`.
+- Added the first alert-style workflow on top of `saved_searches` and the existing `alerts` table:
+  - saved searches can now be turned into monitored alerts with a simple cadence and active/paused state
+  - alerts have a dedicated `/alerts` management page plus alert controls on `/searches`
+  - the app now treats alert configuration as real user state instead of only a future schema placeholder
+- Kept the alert slice honest and `MVP`-scoped:
+  - alert cadence/state/configuration are real
+  - background delivery is still intentionally not implemented yet
+  - the UI says that clearly instead of implying email sending already exists
+- Verified the alert-management slice with `npm run typecheck --workspace @anti-ghost/web` and `npm run build --workspace @anti-ghost/web`.
+- Added the first real monitored-search check loop on top of saved searches:
+  - introduced append-only `saved_search_snapshots` so the product now preserves baseline and follow-up search checks as durable user-facing history
+  - users can now run a manual "check again" action from `/searches` and `/alerts` to capture current match counts, priority mix, official-route coverage, and ordered matching job IDs
+  - saved searches now surface change summaries such as new matches since the last check, dropped matches, and compact previews of newly surfaced roles
+- Kept the monitored-search slice honest and `MVP`-scoped:
+  - checks are real persisted product history, not client-only counters
+  - alerts still do not send email yet, but they now sit on top of meaningful saved-search monitoring context instead of only cadence configuration
+- Verified the monitored-search slice with `npm run db:generate`, `npm run typecheck --workspace @anti-ghost/web`, and `npm run build --workspace @anti-ghost/web`.
+- Added the first append-only alert execution history layer on top of monitored searches:
+  - introduced `alert_runs` so each alert execution now records trigger source, success/error state, change counts, and the snapshot produced by that run
+  - added manual per-alert run actions plus a user-scoped "run due alerts now" action on `/alerts`
+  - added a repo-level `npm run alerts:run` command that executes due alerts through the same shared path the web UI uses
+- Kept the alert execution slice honest and `MVP`-scoped:
+  - alert runs create real saved-search snapshots and alert-run history
+  - the product still does not send email yet; this phase focused on scheduled execution history, not fake delivery
+- Verified the alert execution slice with `npm install --workspace @anti-ghost/web`, `npm run db:generate`, `npm run typecheck --workspace @anti-ghost/web`, and `npm run build --workspace @anti-ghost/web`.
+- Confirmed the new CLI path now loads correctly, and the only local blocker is schema freshness: older local DBs need `db:review:bootstrap` or `db:eval:bootstrap` before `alerts:run` can see the new snapshot/run tables.
+- Added richer monitored-search history visibility on top of the new snapshot/run layers:
+  - saved searches now summarize short-window trend direction and show recent checkpoint history instead of only the latest check
+  - alerts now show recent run history beneath the latest-run summary so users can see repeated due/manual execution behavior over time
+  - the monitored-search surfaces now answer not just "what changed last time?" but also "is this search growing, shrinking, or staying flat lately?"
+- Verified the richer history slice with `npm run typecheck --workspace @anti-ghost/web` and `npm run build --workspace @anti-ghost/web`.
+- Added a secure background alert execution entrypoint:
+  - the app now exposes `/api/internal/alerts/run` as a secret-protected internal route for running due alerts in the background
+  - the route reuses the same append-only alert execution path as the UI and CLI instead of inventing a second background-only code path
+  - `.env.example` now includes `ANTI_GHOST_ALERT_RUN_SECRET` so local setup can configure that route intentionally
+- Hardened the current `MVP` auth layer beyond the earlier raw cookie approach:
+  - added persisted `user_sessions` records and switched the browser cookie to a random session token instead of storing a raw user identifier
+  - sign-in, sign-out, and current-user resolution now go through server-side session records with expiry handling
+  - the sign-in UI copy now reflects that this is still lightweight auth, but no longer the earlier bare user-id cookie version
+- Verified the background-route plus auth-hardening slice with `npm run db:generate`, `npm run typecheck --workspace @anti-ghost/web`, and `npm run build --workspace @anti-ghost/web`.
+- Added the first user-facing monitored-search updates destination:
+  - the app now exposes `/updates` as an inbox-style page for alert-backed search changes, using the existing alert-run and saved-search snapshot history rather than a separate notification model
+  - each monitored search now surfaces its latest actionable state there: first-run setup gaps, run failures, due-now status, and preview cards for newly surfaced jobs with save/detail/official-apply actions
+  - the main nav plus alert-management surfaces now point to the updates feed so monitored-search history is discoverable as part of the product, not just a back-office status screen
+- Verified the updates-feed slice with `npm run typecheck --workspace @anti-ghost/web` and `npm run build --workspace @anti-ghost/web`.
+- Wired the internal alert route into a real deployment scheduler seam:
+  - `/api/internal/alerts/run` now accepts both `GET` and `POST`, so it works with current Vercel cron behavior as well as the earlier manual/internal POST path
+  - alert-run auth now accepts either `ANTI_GHOST_ALERT_RUN_SECRET` or `CRON_SECRET`, which keeps local/manual runs working while matching Vercel's built-in cron secret model
+  - repo-root and `apps/web` `vercel.json` files now schedule an hourly cron against `/api/internal/alerts/run`, relying on app-side due logic instead of encoding cadence rules into deployment config
+  - `README.md` and `.env.example` now document the scheduler path, including the simplest deployment setup of using the same value for both secret env vars
+- Verified the scheduler-wiring slice with `npm run typecheck --workspace @anti-ghost/web` and `npm run build --workspace @anti-ghost/web`.
+- Added in-product automatic-refresh health visibility on top of the new scheduler seam:
+  - alerts now distinguish generic run history from due-batch health by surfacing whether automatic refresh is healthy, waiting for its first window, overdue, failing, or paused
+  - the alert settings page and updates feed now call out auto-refresh issues explicitly, so "manual history exists" no longer hides the fact that scheduled refresh may be missing or broken
+  - auto-refresh health is computed from the latest due-batch run rather than the latest manual run, which keeps deployment-scheduler problems visible even when a user refreshes an alert by hand
+- Verified the automatic-refresh health slice with `npm run typecheck --workspace @anti-ghost/web` and `npm run build --workspace @anti-ghost/web`.
+
+## Key Architecture Decisions
+
+- Use a small workspace monorepo instead of splitting V1 into multiple services.
+- Preserve raw source evidence, canonical job entities, history snapshots, and explainability artifacts from day one.
+- Keep the web app, shared product contracts, and database layer separate.
+- Use Prisma 7 with a Postgres adapter and generated client in the database package.
+- Keep deployment scheduling thin and app cadence logic centralized: run one hourly cron against `/api/internal/alerts/run`, then let the existing due-alert evaluator decide which monitored searches actually execute.
+- Evaluate automatic refresh health against due-batch runs, not just any alert run, so manual refreshes do not mask broken scheduler behavior.
+- Start with a mock-data UI shell while real ingestion is built underneath it.
+- Keep V1 ingestion source-specific and adapter-based instead of forcing one generic parser across ATS providers.
+- Persist Greenhouse listings directly into `sources` and `raw_job_listings` first; defer dedicated fetch-run audit tables until the ingestion workflow proves it needs them.
+- Keep ATS adapters on one shared normalization contract so later canonicalization receives predictable inputs across sources.
+- Filter Ashby direct-link-only postings out of the public search ingestion path by respecting `isListed`.
+- Use `docs/status.md` as the durable repo context file so new threads can resume from repository state instead of relying on chat memory.
+- Defer dedicated fetch-run audit tables until queue-backed orchestration exists; for now, use the orchestrator summary output plus source/raw metadata to keep V1 practical.
+- Start canonicalization with deterministic, explainable rules that prefer official URLs and stable ATS identifiers before any broader fuzzy matching.
+- Resolve companies by normalized company name first, and only set `careersUrl` automatically when the canonical source is a company-careers source instead of inferring domains aggressively from ATS data.
+- Persist merge explainability on `canonical_job_sources` so later review/scoring work can inspect why records were clustered and which source won precedence.
+- Keep the first internal review surface inside `apps/web` for MVP speed instead of creating a separate admin app before the workflow proves it needs one.
+- Keep MVP scoring heuristic-first and deterministic, and store reasons, flags, evidence, snapshots, and model version together instead of writing opaque or overwrite-in-place scores.
+- Keep the primary search/detail experience server-rendered against canonical jobs and latest scores, but fall back to sample data when local database access is unavailable so UI work stays unblocked.
+- Treat the next user-facing completion slice as search-to-shortlist workflow, not more calibration infrastructure; this belongs in `MVP` because it directly determines whether the engine is usable by job seekers.
+- Use the existing `users` and `saved_jobs` schema for a local MVP shortlist before full auth lands; this belongs in `MVP` because it enables a real end-to-end product loop without spending the whole phase on authentication plumbing.
+- Keep saved-job notes lightweight and user-specific, not as another review/override mechanism; this belongs in `MVP` because it helps applicants manage their own pipeline without mutating canonical or scoring truth.
+- Treat current sign-in as a lightweight session layer, not finished auth: this belongs in `MVP` because it unlocks real user-specific product flows now while staying explicit about its local-first scope.
+- Reuse the existing `saved_searches` table and the same shareable filter model from live search instead of inventing a second saved-search format; this belongs in `MVP` because it keeps search state auditable, reopenable, and ready for later alerts.
+- Reuse the existing `alerts` table as configuration-first monitored-search state before delivery exists; this belongs in `MVP` because it makes the user workflow real now while keeping the later sending layer small and honest.
+- Keep alert cadence user-facing and explainable, but explicitly separate configuration from delivery; this belongs in `MVP` because it avoids fake-complete notification UX while still exercising the real data model.
+- Add append-only `saved_search_snapshots` as the first monitored-search history layer; this belongs in `MVP` because it gives saved searches and alerts a real user-visible feedback loop without prematurely building background delivery infrastructure.
+- Treat manual saved-search checks as the first honest alert-adjacent workflow; this belongs in `MVP` because it proves that monitored searches are useful before committing to email sending, schedulers, or notification preferences.
+- Add append-only `alert_runs` as the first alert execution history layer; this belongs in `MVP` because it makes cadence-based alerts observable and auditable before background delivery exists.
+- Keep manual UI-triggered runs and CLI due-batch runs on the same shared execution path; this belongs in `MVP` because it avoids one-off behavior differences and gives later schedulers a stable seam to adopt.
+- Surface short-window snapshot and run history directly in the main user workflows; this belongs in `MVP` because it makes monitored searches feel useful before long-term analytics or email delivery exist.
+- Add a secret-protected internal alert-run route before full scheduling infrastructure; this belongs in `MVP` because it creates a real background invocation seam without pretending the product already has a finished worker platform.
+- Replace the raw user-id session cookie with persisted server-side sessions; this belongs in `MVP` because saved jobs, searches, and alerts are now core product flows and should not depend on a trivially forgeable cookie shape.
+- Treat alert history as the first user-facing delivery surface before email exists; this belongs in `MVP` because an updates feed makes monitored searches genuinely usable now without pretending that outbound notification infrastructure is already complete.
+- Reuse the internal review surface as the first score-tuning workstation, so heuristics can be audited cluster-by-cluster before adding override controls or broader enrichment.
+- Keep scoring thresholds centralized in one config module so label tuning and regression tests can evolve together.
+- For local development on machines without PostgreSQL or Docker, a `pglite` socket server can stand in as a Postgres-compatible dev database for schema bootstrap, scoring, and UI verification.
+- Keep a small seeded review corpus available so trust/freshness tuning can be exercised even before live ingestion data is loaded locally.
+- Prefer one-command local review setup for tuning work: bootstrap the local review DB, load the seeded corpus, inspect `/review/canonical`, then adjust scoring config and tests together.
+- Treat `APPLY_NOW` as a narrow urgency label: seeded calibration now expects it mainly for strong-trust, genuinely new official roles rather than merely old-but-still-active ones.
+- Treat fuzzy or internally inconsistent clusters as review-first candidates: they may remain legitimate, but their priority should stay suppressed until the cluster looks cleaner.
+- Treat missing-official ATS-only jobs as conservative by default: the absence of an official apply path should block `APPLY_NOW`, while only especially strong ATS-backed evidence should still allow `APPLY_SOON`.
+- Treat recent ambiguous clusters as freshness-cautious by default: they may still be legitimate, but they should not receive the strongest freshness label while endpoint status is still unknown.
+- Treat company enrichment as evidence-first and company-domain-first: only backfill an ATS-origin job when an official company page confirms the ATS board or when a same-domain careers destination is clearly discoverable.
+- Persist official-source method and evidence explicitly so scoring and review can distinguish direct job-level official confirmation from board-level confirmation and generic careers-page fallbacks.
+- Keep ATS-board verification conservative even after enrichment: a company-linked ATS board is useful evidence, but it should not automatically behave like an exact job-level official page in freshness or priority scoring.
+- Prefer additive local review-schema upgrades over destructive resets so seeded review workflows survive phase-to-phase schema evolution.
+- Keep seeded review calibration and clean live-data evaluation as separate local workflows; the product needs both, and mixing them hides real-data behavior.
+- Treat local `first_seen_at` as true observation history, but let source-reported listing dates cap freshness optimism when ingesting a corpus for the first time; this preserves auditability without labeling old jobs as newly posted.
+- Treat the current ATS-only real sample as a valid scoring and dedupe calibration input, but not as a sufficient precision test for missing-official backfill, because every live canonical job in this sample already has an official ATS URL.
+- Surface company-enrichment coverage directly in the report, because the next live-data bottleneck is now company-domain/careers resolution coverage rather than job-level official-source absence.
+- Use curated, exact normalized-company-name seed inputs as the first company-coverage expansion mechanism: this belongs in `MVP` because it is explainable, auditable, and materially improves coverage without introducing speculative domain resolution.
+- Treat a repeated single ATS board root across many trusted live source URLs as a valid fallback company careers destination when official-site discovery is unavailable; this belongs in `MVP` because it is still structured, auditable, and clearly weaker than a same-domain careers-page confirmation.
+- Persist company careers-url provenance explicitly and keep ATS-board-root verification as its own official-source method, so scoring and reporting can stay honest about whether evidence came from a company page, a curated mapping, or repeated ATS-board evidence.
+- Treat the local `pglite` evaluation loop as an MVP calibration tool with a practical corpus ceiling, not as proof that arbitrarily larger live batches are operationally ready; broader eval growth may need either smaller batches or a stronger local database path.
+- Keep local eval-workflow improvements incremental and reversible: batch sequencing and safer persistence changes belong in `MVP`, while heavier local infra changes should only land once the current eval questions clearly require them.
+- Allow partial company enrichment when only the homepage/domain is well-supported; a missing `careers_url` should not block storing safe company-level evidence if the remaining field is still uncertain.
+- Treat shared requisition evidence as strong enough to justify multi-location clustering, but not strong enough to count as ambiguity on its own once the requisition ID is real and consistent across members.
+- Treat generic or placeholder requisition labels as unsafe for hard matching; this belongs in `MVP` because it closes a real over-merge bug without requiring a heavier review-override system.
+- Treat canonicalization reruns as split-capable, not just merge-capable: previously linked canonical IDs are useful reuse hints, but they must not force multiple newly separated clusters back into one old job during the same pass.
+- Treat `internal_job_id` as strong but not sufficient on its own; in practice it needs title agreement to stay conservative on real ATS data.
+- Treat exact-title, different-location fuzzy candidates as separate by default unless a harder identifier proves they are the same opening; this belongs in `MVP` because it favors under-merging over confusing location-collapsed canonicals.
+- Treat protected title qualifiers as merge boundaries unless a harder identifier overrides them: internship markers, `AI` specializations, and explicit experience bands are too meaningful to collapse through fuzzy title matching in `MVP`.
+- Treat same-requisition title drift as a likely official retitle or copy edit rather than an ambiguity signal; once the requisition is real and shared, the cluster should stay explainable without review penalties.
+- Treat local `pglite` as a strict single-connection database and shape the repo around that constraint: connection pooling, CLI teardown, and parallel command expectations all need to stay conservative when using the local socket server.
+- Preserve raw source evidence without duplicating very large source-specific text blobs into multiple columns; for heavy ATS sources like Ashby, storing the full description in `description_raw` plus metadata in `payload_json` is the safer `MVP` compromise.
+- Treat the broader ten-employer local eval path as two separate questions: ingest on warmed `pglite` is now tractable again, but canonicalization persistence still has a lower ceiling than the matching logic itself.
+- Treat local single-connection canonicalization as a different persistence profile than real Postgres: employer-batched clustering plus row-by-row canonical writes belong in `MVP` because they keep the no-Docker local eval loop honest without changing clustering semantics.
+- Treat `score:report` as an evaluation tool first: full-dataset diagnostics belong in `MVP`, while queue entry truncation should remain the only place where the CLI limits output volume.
+- Treat seniority, sales-segment qualifiers, and acronym-heavy specialization tokens as merge boundaries unless a harder identifier overrides them; this belongs in `MVP` because it closes real live-data over-merges without making fuzzy matching opaque.
+- Treat token-reordered duplicate titles as equivalent for ambiguity scoring, so harmless wording order does not create noisy review queues once the cluster is otherwise exact.
+- Treat small employer-batch expansion configs as the preferred way to grow real-data eval coverage on local `pglite`; this belongs in `MVP` because it keeps live coverage growing while preserving a reproducible local loop.
+- Treat `score:report` as the first broad-eval inspection surface, not just a queue dumper: per-company visibility belongs in `MVP` because broader coverage questions are now more about employer mix than missing-official triage.
+- Treat the internal review page as the first interactive live-eval workstation: explicit company and official-source-method slicing belongs in `MVP` now that the corpus is broad enough for employer mix to matter.
+- Treat reviewer feedback as append-only evidence first, not as an override system: lightweight typed annotations belong in `MVP` because they improve the evaluation loop immediately while preserving auditability and keeping the scoring/canonical engines honest.
+- Treat annotation history as queue-shaping evidence, not truth override: this belongs in `MVP` because it improves reviewer throughput and calibration focus without mutating canonical jobs or scores.
+
+## Open Questions
+
+- How should company enrichment expand beyond curated seeds plus ATS-board-root fallback when neither a trusted company domain nor a repeated ATS board root is already known?
+- Which official-source methods should qualify as fully user-facing `FOUND` versus a more cautious intermediate state once real production data arrives?
+- How aggressive should fuzzy matching become beyond the current deterministic title/location thresholds without increasing false merges?
+- When should canonicalization start considering description similarity and salary agreement as merge signals?
+- When should the sync flow move from CLI/script entrypoints into a queue-backed worker?
+- When should the local real-eval workflow graduate from `pglite` to a stronger Postgres path so the standard eval batch can grow beyond the current ten-employer ceiling?
+- Is there a lightweight stronger local Postgres workflow we can add without giving up the current no-Docker fallback, or is the next clean move to keep `pglite` for the standard batch and document a separate larger-corpus path?
+- When do we need reviewer override controls for bad official-source resolutions rather than keeping the review workflow read-only?
+- When should reviewer annotations start feeding back into CLI evaluation outputs such as `score:report`, instead of living only on the web review surface?
+- Which reviewer control is the highest-value next one after typed notes: merge overrides, official-source overrides, or annotation-aware evaluation summaries?
+- Should first-pass review backlog be stricter than it is now, or is including score-risk plus low-confidence jobs the right `MVP` default?
+- When reviewer history accumulates, should `confirmed` notes suppress some queue surfaces automatically, or should they only affect ordering?
+- Should the next `MVP` company-coverage step broaden the live-eval employer set first, or deepen official-company discovery for cases where ATS-board-root fallback still feels too weak?
+- Is `APPLY_NOW` still too generous for some live `FRESH` official jobs when local history is only one run deep, or is the remaining spread acceptable until repeated sync history accumulates?
+- Should exact-same-title, same-location duplicates without hard IDs be merged more aggressively than they are today, or is the current conservative stance acceptable for MVP?
+- Which next phase creates the most MVP value now: broader company/eval coverage, deeper official-company discovery, or reviewer override controls?
+- How much more canonicalization persistence optimization is worth doing on `pglite` before the cleaner answer becomes a stronger local Postgres path for corpora beyond the current ten-employer batch?
+- Should the next real-data phase broaden the employer corpus again now that the fourteen-employer ambiguity queue is empty, or is the higher-value move to shift into reviewer controls or product-facing workflow polish?
+- Which next structured employers offer the best precision/coverage signal without turning the local eval corpus into a giant Greenhouse-heavy sample?
+- How far can the local `pglite` eval corpus grow past the current fourteen-employer sample before a stronger local Postgres path becomes the cleaner answer again?
+- Are there any remaining heavy non-Ashby sources whose raw payloads still duplicate large text fields into `payload_json`, or is Ashby the main outlier for now?
+- When should the local MVP user path give way to full authentication: before saved searches/alerts, or only once the shortlist workflow itself proves valuable?
+- What is the smallest worthwhile saved-search or alert slice after saved jobs now that the shortlist path is live?
+- Should the next user-facing pass improve search relevance/ranking presentation further, or is broader employer coverage the higher-value move once saved jobs exist?
+- When should the lightweight email-session auth be replaced with a stronger production auth path, and which provider should land first?
+- After saved-search creation exists, is the next smallest alert slice a manual “check this saved search again” workflow, or should the product first add search-result count/history context to saved searches?
+- Now that manual checks and change summaries exist, should the next alert step be background delivery, scheduled alert-run recording, or richer saved-search history trends?
+
+## Next Recommended Steps
+
+- `MVP` Treat `/updates` as the primary monitored-search destination now that alert history is user-facing; the next clean follow-up is operationalizing the hourly cron in deployment and confirming real automatic refresh on a live environment.
+- `MVP` Use the new auto-refresh health states on `/alerts` and `/updates` as the live deployment smoke test once cron is enabled; the product now exposes overdue or failing due-batch refresh directly instead of making operators infer it from raw run history.
+- `MVP` After scheduled refresh is live, decide whether the next higher-leverage step is stronger external auth or the first outbound digest channel; the current product can already show honest alert changes in-app.
+- `MVP` Build on the new monitored-search loop next, not more review polish: the best follow-up candidates are stronger auth hardening, scheduled alert execution history, or another pass on search relevance/presentation now that saved searches can actually be re-checked.
+- `MVP` Treat append-only saved-search checks as the baseline for future alerts: actual delivery should build on this history layer rather than bypassing it with one-off email plumbing.
+- `MVP` Build on the new alert-run history next, not fake email plumbing: the best follow-up candidates are scheduled/background invocation of `alerts:run`, richer alert-run history/trends, or stronger auth hardening.
+- `MVP` Run `npm run db:review:bootstrap` or `npm run db:eval:bootstrap` on older local databases before using the new alert execution path, because this phase added both `saved_search_snapshots` and `alert_runs`.
+- `MVP` The next clean follow-up after the new history UI is background invocation of `alerts:run` or stronger auth hardening; the monitored-search surfaces themselves now have enough status/history context for honest local use.
+- `MVP` The next clean follow-up after the new background route plus session hardening is either wiring a real scheduler to `/api/internal/alerts/run` or moving to the first stronger external auth provider.
+- `MVP` Keep `ANTI_GHOST_ALERT_RUN_SECRET` or `CRON_SECRET` required for the internal alert route; background execution should stay explicit and secret-protected until there is a fuller worker/auth story.
+- `MVP` Keep the current email-session auth explicit about its scope until a stronger production auth path lands; do not let the UI imply that the current sign-in is more robust than it is.
+- `MVP` Treat the ten-employer eval set as the new standard broader local calibration batch on `pglite`: the local workflow now completes end to end, and it gives the next evaluation phase a meaningfully richer real-data corpus.
+- `MVP` Use `npm run ingest:batch -- --configs=config/source-sync.real-eval.json,config/source-sync.real-eval.expansion.json` when the broader live corpus is needed locally, then follow with `canonicalize`, `enrich:companies`, `score:jobs`, and `score:report`.
+- `MVP` Keep ATS-board-root fallback conservative: require one repeated trusted ATS board root, keep it explicitly labeled in evidence/reporting, and avoid letting it silently masquerade as a same-domain company careers page.
+- `MVP` Keep using `npm run db:eval:bootstrap`, `npm run ingest:all -- --config=config/source-sync.real-eval.json`, `npm run canonicalize`, `npm run enrich:companies`, `npm run score:jobs`, and `npm run score:report -- --limit=...` as the standard real-data phase loop.
+- `MVP` Keep the new local DB hardening in place for all review/eval work: `connection_limit=1`, explicit Prisma disconnects in CLIs, and persisted `pglite` log files are now part of the stable local workflow.
+- `MVP` Keep the Ashby payload compaction in place, because it materially reduces heavy-source ingest pressure without sacrificing the raw description body stored in `description_raw`.
+- `MVP` Keep broadening the real-eval employer set in small conservative batches now that the fourteen-employer ambiguity queue is empty; this is still the clearest way to keep testing official-source precision and company-coverage generalization on fresh live data.
+- `MVP` Use the current three-config staged loop when the broader corpus is needed locally:
+  - `config/source-sync.real-eval.json`
+  - `config/source-sync.real-eval.expansion.json`
+  - `config/source-sync.real-eval.expansion-2.json`
+- `MVP` The current staged loop now extends to a fourth config for the fourteen-employer corpus:
+  - `config/source-sync.real-eval.expansion-3.json`
+- `MVP` Use the new `topCompanies` report queue to spot employer-mix gaps before adding the next batch; this keeps expansion grounded in coverage quality instead of just raw listing growth.
+- `MVP` Treat the new reviewer-annotation path as the standard way to capture evaluation findings on `/review/canonical`: use typed notes plus follow-up state before building any heavier override system.
+- `MVP` Keep improving the internal review surface in small steps now that it sits on top of a real fourteen-employer corpus; the next useful additions are likely reviewer-name persistence polish, annotation-aware company summaries, or carefully scoped merge/official-source override proposals.
+- `MVP` Now that annotation history influences review ordering and company summaries, the next clean step is reviewer-name persistence polish plus a tiny “latest reviewer decision” rollup/format cleanup across the remaining surfaces.
+- `MVP` Only after that, decide whether any reviewer action should become a true override path; the current backlog model is deliberately evidence-first, not engine-mutating.
+- `MVP` Keep the new protected-title guardrails in place for future eval additions: seniority, segment qualifiers, and acronym-heavy specialization tokens should remain under-merge-biased unless a harder identifier proves equivalence.
+- `MVP` Inspect whether any of the new `trusted_ats_board_root` cases should later graduate to stronger same-domain company-page evidence, but do not blur those methods together in scoring.
+- `Post-MVP leaning` Build deeper evaluation dashboards and reviewer override controls only after the broader eval set plus annotation history expose a real pattern they would solve better than the current report and review queues.

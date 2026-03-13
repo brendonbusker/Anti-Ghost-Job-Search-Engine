@@ -1,0 +1,4 @@
+interface:
+  display_name: "Job Ingestion Pipeline"
+  short_description: "Build safe adapters and normalized job ingestion"
+  default_prompt: "Use $job-ingestion-pipeline to build or revise a public job source adapter."

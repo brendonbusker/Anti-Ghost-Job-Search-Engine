@@ -1,0 +1,4 @@
+interface:
+  display_name: "Job Search UI"
+  short_description: "Build dense, explainable anti-ghost job search UI"
+  default_prompt: "Use $job-search-ui to design or implement the anti-ghost-job search experience."

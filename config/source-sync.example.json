@@ -1,0 +1,16 @@
+{
+  "sources": [
+    {
+      "kind": "greenhouse",
+      "boardToken": "acme"
+    },
+    {
+      "kind": "lever",
+      "site": "acme"
+    },
+    {
+      "kind": "ashby",
+      "boardName": "Acme"
+    }
+  ]
+}

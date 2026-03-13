@@ -1,0 +1,4 @@
+interface:
+  display_name: "Job Dedup Canonicalization"
+  short_description: "Cluster duplicate listings into canonical jobs"
+  default_prompt: "Use $job-dedup-canonicalization to design or implement canonical job matching rules."

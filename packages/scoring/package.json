@@ -1,0 +1,23 @@
+{
+  "name": "@anti-ghost/scoring",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "score:jobs": "tsx src/cli/score-jobs.ts",
+    "score:report": "tsx src/cli/score-report.ts",
+    "seed:review-data": "tsx src/cli/seed-review-data.ts",
+    "test": "tsx --test src/**/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anti-ghost/database": "file:../database",
+    "@anti-ghost/ingestion": "file:../ingestion"
+  },
+  "devDependencies": {
+    "tsx": "4.21.0",
+    "typescript": "5.9.3"
+  }
+}

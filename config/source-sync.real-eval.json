@@ -1,0 +1,36 @@
+{
+  "sources": [
+    {
+      "kind": "greenhouse",
+      "boardToken": "airtable"
+    },
+    {
+      "kind": "greenhouse",
+      "boardToken": "chainguard"
+    },
+    {
+      "kind": "greenhouse",
+      "boardToken": "vercel"
+    },
+    {
+      "kind": "lever",
+      "site": "dnb"
+    },
+    {
+      "kind": "lever",
+      "site": "entrata"
+    },
+    {
+      "kind": "ashby",
+      "boardName": "linear"
+    },
+    {
+      "kind": "ashby",
+      "boardName": "cursor"
+    },
+    {
+      "kind": "ashby",
+      "boardName": "substack"
+    }
+  ]
+}

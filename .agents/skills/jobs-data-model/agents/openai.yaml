@@ -1,0 +1,4 @@
+interface:
+  display_name: "Jobs Data Model"
+  short_description: "Design schema and persistence for job intelligence"
+  default_prompt: "Use $jobs-data-model to design or revise the anti-ghost-job schema safely."

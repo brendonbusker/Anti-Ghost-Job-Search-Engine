@@ -1,0 +1,13 @@
+node_modules/
+.next/
+dist/
+coverage/
+.codex/
+*.log
+.env
+.env.local
+.env.*.local
+packages/*/node_modules/
+apps/web/node_modules/
+apps/web/.next/
+packages/database/src/generated/

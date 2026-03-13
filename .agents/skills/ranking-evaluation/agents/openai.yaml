@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ranking Evaluation"
+  short_description: "Evaluate trust, freshness, ranking, and dedupe quality"
+  default_prompt: "Use $ranking-evaluation to evaluate scoring, ranking, or dedupe quality."

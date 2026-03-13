@@ -1,0 +1,12 @@
+{
+  "sources": [
+    {
+      "kind": "greenhouse",
+      "boardToken": "figma"
+    },
+    {
+      "kind": "ashby",
+      "boardName": "vanta"
+    }
+  ]
+}

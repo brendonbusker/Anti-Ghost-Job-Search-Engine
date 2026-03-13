@@ -1,0 +1,12 @@
+{
+  "sources": [
+    {
+      "kind": "greenhouse",
+      "boardToken": "webflow"
+    },
+    {
+      "kind": "ashby",
+      "boardName": "zapier"
+    }
+  ]
+}

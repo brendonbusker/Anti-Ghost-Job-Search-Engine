@@ -1,0 +1,33 @@
+{
+  "name": "anti-ghost-job-search-engine",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @anti-ghost/web",
+    "build": "npm run build --workspace @anti-ghost/web",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:review:bootstrap": "node scripts/bootstrap_review_db.mjs",
+    "db:review:stop": "node scripts/stop_review_db.mjs",
+    "db:eval:bootstrap": "node scripts/bootstrap_review_db.mjs --mode=eval",
+    "db:eval:stop": "node scripts/stop_review_db.mjs --mode=eval",
+    "skills:install": "python scripts/install_repo_skills.py",
+    "score:jobs": "npm run score:jobs --workspace @anti-ghost/scoring",
+    "score:report": "npm run score:report --workspace @anti-ghost/scoring --",
+    "seed:review-data": "npm run seed:review-data --workspace @anti-ghost/scoring",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "db:generate": "npm run db:generate --workspace @anti-ghost/database",
+    "alerts:run": "npm run alerts:run --workspace @anti-ghost/web --",
+    "canonicalize": "npm run canonicalize --workspace @anti-ghost/ingestion",
+    "enrich:companies": "npm run enrich:companies --workspace @anti-ghost/ingestion",
+    "ingest:all": "npm run sync:all --workspace @anti-ghost/ingestion --",
+    "ingest:batch": "npm run sync:batch --workspace @anti-ghost/ingestion --",
+    "ingest:greenhouse": "npm run sync:greenhouse --workspace @anti-ghost/ingestion",
+    "ingest:lever": "npm run sync:lever --workspace @anti-ghost/ingestion",
+    "ingest:ashby": "npm run sync:ashby --workspace @anti-ghost/ingestion",
+    "postinstall": "npm run db:generate"
+  }
+}

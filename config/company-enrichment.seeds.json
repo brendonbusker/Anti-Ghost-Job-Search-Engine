@@ -1,0 +1,73 @@
+{
+  "companies": [
+    {
+      "normalizedName": "airtable",
+      "primaryDomain": "airtable.com",
+      "careersUrl": "https://airtable.com/careers"
+    },
+    {
+      "normalizedName": "chainguard",
+      "primaryDomain": "chainguard.dev",
+      "careersUrl": "https://www.chainguard.dev/careers"
+    },
+    {
+      "normalizedName": "cursor",
+      "primaryDomain": "cursor.com",
+      "careersUrl": "https://cursor.com/careers"
+    },
+    {
+      "normalizedName": "dnb",
+      "primaryDomain": "dnb.com"
+    },
+    {
+      "normalizedName": "entrata",
+      "primaryDomain": "entrata.com",
+      "careersUrl": "https://www.entrata.com/careers"
+    },
+    {
+      "normalizedName": "figma",
+      "primaryDomain": "figma.com",
+      "careersUrl": "https://www.figma.com/careers/"
+    },
+    {
+      "normalizedName": "linear",
+      "primaryDomain": "linear.app",
+      "careersUrl": "https://linear.app/careers"
+    },
+    {
+      "normalizedName": "modal",
+      "primaryDomain": "modal.com",
+      "careersUrl": "https://modal.com/company"
+    },
+    {
+      "normalizedName": "substack",
+      "primaryDomain": "substack.com",
+      "careersUrl": "https://substack.com/jobs"
+    },
+    {
+      "normalizedName": "render",
+      "primaryDomain": "render.com",
+      "careersUrl": "https://render.com/careers"
+    },
+    {
+      "normalizedName": "vanta",
+      "primaryDomain": "vanta.com",
+      "careersUrl": "https://www.vanta.com/company/careers"
+    },
+    {
+      "normalizedName": "webflow",
+      "primaryDomain": "webflow.com",
+      "careersUrl": "https://webflow.com/careers"
+    },
+    {
+      "normalizedName": "vercel",
+      "primaryDomain": "vercel.com",
+      "careersUrl": "https://vercel.com/careers"
+    },
+    {
+      "normalizedName": "zapier",
+      "primaryDomain": "zapier.com",
+      "careersUrl": "https://zapier.com/jobs"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Browser Extension Overlay"
+  short_description: "Build the post-MVP job-intelligence browser overlay"
+  default_prompt: "Use $browser-extension-overlay to design or implement the browser extension overlay."

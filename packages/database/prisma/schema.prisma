@@ -1,0 +1,410 @@
+generator client {
+  provider   = "prisma-client"
+  output   = "../src/generated/prisma"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SourceType {
+  GREENHOUSE
+  LEVER
+  ASHBY
+  COMPANY_CAREERS
+  STRUCTURED_PAGE
+  SUPPLEMENTAL
+}
+
+enum SourceTrustLevel {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RemoteType {
+  REMOTE
+  HYBRID
+  ONSITE
+  UNKNOWN
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  TEMPORARY
+  INTERN
+  FREELANCE
+  UNKNOWN
+}
+
+enum CanonicalJobStatus {
+  ACTIVE
+  INACTIVE
+  UNKNOWN
+}
+
+enum ApplicationEndpointStatus {
+  ACTIVE
+  INACTIVE
+  UNKNOWN
+  ERROR
+}
+
+enum TrustLabel {
+  HIGH_CONFIDENCE_REAL
+  MEDIUM_CONFIDENCE
+  UNVERIFIED_SOURCE
+  SUSPICIOUS_LOW_CONFIDENCE
+}
+
+enum FreshnessLabel {
+  NEW
+  FRESH
+  AGING
+  POSSIBLY_STALE
+  LIKELY_STALE
+  REPOSTED_REPEATEDLY
+}
+
+enum PriorityLabel {
+  APPLY_NOW
+  APPLY_SOON
+  LOW_PRIORITY
+  AVOID_FOR_NOW
+}
+
+enum AuthProvider {
+  EMAIL
+  GOOGLE
+  GITHUB
+  OTHER
+}
+
+enum AlertStatus {
+  ACTIVE
+  PAUSED
+  DISABLED
+}
+
+enum AlertRunStatus {
+  SUCCESS
+  ERROR
+}
+
+enum AlertRunTrigger {
+  MANUAL
+  DUE_BATCH
+}
+
+enum CanonicalReviewType {
+  MERGE_QUALITY
+  OFFICIAL_SOURCE
+  SCORE_CALIBRATION
+  GENERAL_NOTE
+}
+
+enum CanonicalReviewDisposition {
+  CONFIRMED
+  INCORRECT
+  NEEDS_FOLLOW_UP
+}
+
+model Company {
+  id                    String         @id @default(cuid())
+  displayName           String         @map("display_name")
+  normalizedName        String         @unique @map("normalized_name")
+  primaryDomain         String?        @unique @map("primary_domain")
+  primaryDomainConfidence Float?       @map("primary_domain_confidence")
+  careersUrl            String?        @map("careers_url")
+  careersUrlConfidence  Float?         @map("careers_url_confidence")
+  enrichmentEvidenceJson Json?         @map("enrichment_evidence_json")
+  metadataJson          Json?          @map("metadata_json")
+  canonicalJobs         CanonicalJob[]
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+
+  @@map("companies")
+}
+
+model Source {
+  id             String           @id @default(cuid())
+  sourceType     SourceType       @map("source_type")
+  sourceName     String           @map("source_name")
+  baseUrl        String?          @map("base_url")
+  trustLevel     SourceTrustLevel @default(MEDIUM) @map("trust_level")
+  metadataJson   Json?            @map("metadata_json")
+  rawJobListings RawJobListing[]
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  @@unique([sourceType, sourceName])
+  @@index([sourceType, trustLevel])
+  @@map("sources")
+}
+
+model RawJobListing {
+  id                String               @id @default(cuid())
+  sourceId          String               @map("source_id")
+  source            Source               @relation(fields: [sourceId], references: [id], onDelete: Restrict)
+  externalJobId     String?              @map("external_job_id")
+  url               String
+  titleRaw          String               @map("title_raw")
+  companyNameRaw    String               @map("company_name_raw")
+  locationRaw       String?              @map("location_raw")
+  remoteTypeRaw     String?              @map("remote_type_raw")
+  employmentTypeRaw String?              @map("employment_type_raw")
+  salaryRaw         String?              @map("salary_raw")
+  descriptionRaw    String               @map("description_raw")
+  postedAtRaw       String?              @map("posted_at_raw")
+  firstSeenAt       DateTime             @map("first_seen_at")
+  lastSeenAt        DateTime             @map("last_seen_at")
+  isActive          Boolean              @default(true) @map("is_active")
+  parseConfidence   Float?               @map("parse_confidence")
+  payloadJson       Json                 @map("payload_json")
+  contentHash       String?              @map("content_hash")
+  canonicalLinks    CanonicalJobSource[]
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+
+  @@unique([sourceId, url])
+  @@unique([sourceId, externalJobId])
+  @@index([firstSeenAt])
+  @@index([lastSeenAt])
+  @@index([isActive])
+  @@index([contentHash])
+  @@map("raw_job_listings")
+}
+
+model CanonicalJob {
+  id                       String                @id @default(cuid())
+  canonicalTitle           String                @map("canonical_title")
+  canonicalCompanyId       String?               @map("canonical_company_id")
+  canonicalCompany         Company?              @relation(fields: [canonicalCompanyId], references: [id], onDelete: SetNull)
+  canonicalLocation        String?               @map("canonical_location")
+  remoteType               RemoteType            @default(UNKNOWN) @map("remote_type")
+  employmentType           EmploymentType?       @map("employment_type")
+  salaryCurrency           String?               @map("salary_currency")
+  salaryMin                Int?                  @map("salary_min")
+  salaryMax                Int?                  @map("salary_max")
+  descriptionText          String?               @map("description_text")
+  searchSummary            String?               @map("search_summary")
+  officialSourceUrl        String?               @map("official_source_url")
+  officialSourceConfidence Float?                @map("official_source_confidence")
+  officialSourceMethod     String?               @map("official_source_method")
+  officialSourceEvidenceJson Json?               @map("official_source_evidence_json")
+  firstSeenAt              DateTime              @map("first_seen_at")
+  lastSeenAt               DateTime              @map("last_seen_at")
+  repostCount              Int                   @default(0) @map("repost_count")
+  currentStatus            CanonicalJobStatus    @default(UNKNOWN) @map("current_status")
+  sources                  CanonicalJobSource[]
+  snapshots                JobSnapshot[]
+  scores                   JobScore[]
+  reviews                  CanonicalJobReview[]
+  savedJobs                SavedJob[]
+  createdAt                DateTime              @default(now()) @map("created_at")
+  updatedAt                DateTime              @updatedAt @map("updated_at")
+
+  @@index([canonicalCompanyId])
+  @@index([remoteType])
+  @@index([currentStatus, lastSeenAt])
+  @@index([salaryMin, salaryMax])
+  @@map("canonical_jobs")
+}
+
+model CanonicalJobSource {
+  id                 String         @id @default(cuid())
+  canonicalJobId     String         @map("canonical_job_id")
+  rawJobListingId    String         @map("raw_job_listing_id")
+  canonicalJob       CanonicalJob   @relation(fields: [canonicalJobId], references: [id], onDelete: Cascade)
+  rawJobListing      RawJobListing  @relation(fields: [rawJobListingId], references: [id], onDelete: Cascade)
+  linkConfidence     Float?         @map("link_confidence")
+  precedenceRank     Int?           @map("precedence_rank")
+  isCanonicalSource  Boolean        @default(false) @map("is_canonical_source")
+  mergeRationaleJson Json?          @map("merge_rationale_json")
+  createdAt          DateTime       @default(now()) @map("created_at")
+
+  @@unique([canonicalJobId, rawJobListingId])
+  @@index([rawJobListingId])
+  @@index([isCanonicalSource, precedenceRank])
+  @@map("canonical_job_sources")
+}
+
+model JobSnapshot {
+  id                        String                    @id @default(cuid())
+  canonicalJobId            String                    @map("canonical_job_id")
+  canonicalJob              CanonicalJob              @relation(fields: [canonicalJobId], references: [id], onDelete: Cascade)
+  snapshotAt                DateTime                  @map("snapshot_at")
+  sourceCount               Int                       @map("source_count")
+  activeSourceCount         Int                       @map("active_source_count")
+  officialSourcePresent     Boolean                   @map("official_source_present")
+  applicationEndpointStatus ApplicationEndpointStatus @default(UNKNOWN) @map("application_endpoint_status")
+  descriptionHash           String?                   @map("description_hash")
+  metadataJson              Json?                     @map("metadata_json")
+  createdAt                 DateTime                  @default(now()) @map("created_at")
+
+  @@index([canonicalJobId, snapshotAt(sort: Desc)])
+  @@map("job_snapshots")
+}
+
+model JobScore {
+  id             String         @id @default(cuid())
+  canonicalJobId String         @map("canonical_job_id")
+  canonicalJob   CanonicalJob   @relation(fields: [canonicalJobId], references: [id], onDelete: Cascade)
+  scoredAt       DateTime       @map("scored_at")
+  trustScore     Int            @map("trust_score")
+  freshnessScore Int            @map("freshness_score")
+  priorityScore  Int            @map("priority_score")
+  trustLabel     TrustLabel     @map("trust_label")
+  freshnessLabel FreshnessLabel @map("freshness_label")
+  priorityLabel  PriorityLabel  @map("priority_label")
+  reasonsJson    Json           @map("reasons_json")
+  flagsJson      Json?          @map("flags_json")
+  evidenceJson   Json?          @map("evidence_json")
+  modelVersion   String         @map("model_version")
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  @@index([canonicalJobId, scoredAt(sort: Desc)])
+  @@index([trustLabel, freshnessLabel, priorityLabel])
+  @@map("job_scores")
+}
+
+model CanonicalJobReview {
+  id            String                     @id @default(cuid())
+  canonicalJobId String                    @map("canonical_job_id")
+  canonicalJob  CanonicalJob               @relation(fields: [canonicalJobId], references: [id], onDelete: Cascade)
+  reviewType    CanonicalReviewType        @map("review_type")
+  disposition   CanonicalReviewDisposition @map("disposition")
+  summary       String
+  details       String?
+  reviewerName  String?                    @map("reviewer_name")
+  createdAt     DateTime                   @default(now()) @map("created_at")
+
+  @@index([canonicalJobId, createdAt(sort: Desc)])
+  @@index([reviewType, disposition, createdAt(sort: Desc)])
+  @@map("canonical_job_reviews")
+}
+
+model User {
+  id                 String        @id @default(cuid())
+  email              String        @unique
+  name               String?
+  authProvider       AuthProvider? @map("auth_provider")
+  authProviderUserId String?       @map("auth_provider_user_id")
+  preferencesJson    Json?         @map("preferences_json")
+  targetRolesJson    Json?         @map("target_roles_json")
+  savedJobs          SavedJob[]
+  savedSearches      SavedSearch[]
+  alerts             Alert[]
+  sessions           UserSession[]
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
+
+  @@index([authProvider, authProviderUserId])
+  @@map("users")
+}
+
+model UserSession {
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  sessionToken String   @unique @map("session_token")
+  expiresAt    DateTime @map("expires_at")
+  lastSeenAt   DateTime @default(now()) @map("last_seen_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+model SavedJob {
+  id             String       @id @default(cuid())
+  userId         String       @map("user_id")
+  canonicalJobId String       @map("canonical_job_id")
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  canonicalJob   CanonicalJob @relation(fields: [canonicalJobId], references: [id], onDelete: Cascade)
+  savedAt        DateTime     @default(now()) @map("saved_at")
+  notes          String?
+
+  @@unique([userId, canonicalJobId])
+  @@index([savedAt(sort: Desc)])
+  @@map("saved_jobs")
+}
+
+model SavedSearch {
+  id                  String                @id @default(cuid())
+  userId              String                @map("user_id")
+  user                User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name                String?
+  queryParams         Json                  @map("query_params")
+  alerts              Alert[]
+  snapshots           SavedSearchSnapshot[]
+  createdAt           DateTime              @default(now()) @map("created_at")
+  updatedAt           DateTime              @updatedAt @map("updated_at")
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("saved_searches")
+}
+
+model SavedSearchSnapshot {
+  id                 String      @id @default(cuid())
+  savedSearchId      String      @map("saved_search_id")
+  savedSearch        SavedSearch @relation(fields: [savedSearchId], references: [id], onDelete: Cascade)
+  alertRuns          AlertRun[]
+  checkedAt          DateTime    @default(now()) @map("checked_at")
+  matchedJobCount    Int         @map("matched_job_count")
+  applyNowCount      Int         @map("apply_now_count")
+  applySoonCount     Int         @map("apply_soon_count")
+  officialSourceCount Int        @map("official_source_count")
+  matchedJobIdsJson  Json        @map("matched_job_ids_json")
+  createdAt          DateTime    @default(now()) @map("created_at")
+
+  @@index([savedSearchId, checkedAt(sort: Desc)])
+  @@map("saved_search_snapshots")
+}
+
+model Alert {
+  id            String      @id @default(cuid())
+  userId        String      @map("user_id")
+  savedSearchId String?     @map("saved_search_id")
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  savedSearch   SavedSearch? @relation(fields: [savedSearchId], references: [id], onDelete: SetNull)
+  name          String?
+  channel       String      @default("email")
+  scheduleCron  String?     @map("schedule_cron")
+  status        AlertStatus @default(ACTIVE)
+  lastSentAt    DateTime?   @map("last_sent_at")
+  runs          AlertRun[]
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  @@index([userId, status])
+  @@map("alerts")
+}
+
+model AlertRun {
+  id                  String           @id @default(cuid())
+  alertId             String           @map("alert_id")
+  savedSearchSnapshotId String?        @map("saved_search_snapshot_id")
+  alert               Alert            @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  savedSearchSnapshot SavedSearchSnapshot? @relation(fields: [savedSearchSnapshotId], references: [id], onDelete: SetNull)
+  trigger             AlertRunTrigger
+  status              AlertRunStatus
+  startedAt           DateTime         @default(now()) @map("started_at")
+  completedAt         DateTime?        @map("completed_at")
+  matchedJobCount     Int              @default(0) @map("matched_job_count")
+  newMatchesCount     Int              @default(0) @map("new_matches_count")
+  droppedMatchesCount Int              @default(0) @map("dropped_matches_count")
+  applyNowCount       Int              @default(0) @map("apply_now_count")
+  applySoonCount      Int              @default(0) @map("apply_soon_count")
+  officialSourceCount Int              @default(0) @map("official_source_count")
+  errorMessage        String?          @map("error_message")
+  createdAt           DateTime         @default(now()) @map("created_at")
+
+  @@index([alertId, startedAt(sort: Desc)])
+  @@index([status, startedAt(sort: Desc)])
+  @@map("alert_runs")
+}

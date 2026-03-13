@@ -1,0 +1,4 @@
+interface:
+  display_name: "Job Staleness Scoring"
+  short_description: "Design freshness, repost, and stale-job logic"
+  default_prompt: "Use $job-staleness-scoring to build or tune explainable freshness scoring."

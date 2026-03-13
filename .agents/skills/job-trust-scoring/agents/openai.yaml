@@ -1,0 +1,4 @@
+interface:
+  display_name: "Job Trust Scoring"
+  short_description: "Design explainable realness and trust heuristics"
+  default_prompt: "Use $job-trust-scoring to build or tune explainable job trust scoring."
